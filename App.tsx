@@ -21,14 +21,14 @@ const App: React.FC = () => {
   const [aiComment, setAiComment] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // 固定年份列表，避免選擇後選單內容跳動
+  // 靜態年份選單
   const yearOptions = useMemo(() => {
     return Array.from({ length: 11 }, (_, i) => currentYear - 5 + i);
   }, [currentYear]);
 
-  // Load data from localStorage on mount
+  // 從 LocalStorage 載入資料 (純前端持久化)
   useEffect(() => {
-    const saved = localStorage.getItem('salary-calculator-data');
+    const saved = localStorage.getItem('salary-calculator-v2');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -40,9 +40,9 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Save data whenever it changes
+  // 當資料更動時儲存至 LocalStorage
   useEffect(() => {
-    localStorage.setItem('salary-calculator-data', JSON.stringify({
+    localStorage.setItem('salary-calculator-v2', JSON.stringify({
       data: calendarData,
       rate: hourlyRate
     }));
@@ -72,18 +72,18 @@ const App: React.FC = () => {
     });
   }, []);
 
+  // 計算本月總工時
   const totalHours = useMemo(() => {
     const days = getDaysInMonth(year, month);
     let total = 0;
     for (let d = 1; d <= days; d++) {
       const key = formatDateKey(year, month, d);
       const entry = calendarData[key];
-      if (entry && !entry.skipped) {
-        total += entry.duration;
-      } else if (!entry) {
+      if (entry) {
+        if (!entry.skipped) total += entry.duration;
+      } else {
         const date = new Date(year, month, d);
         const defaults = getDefaultTimes(date.getDay());
-        // 如果預設不是「跳過」，則列入計算
         if (!defaults.skipped) {
           total += calculateDuration(defaults.start, defaults.end);
         }
@@ -92,6 +92,7 @@ const App: React.FC = () => {
     return total;
   }, [year, month, calendarData]);
 
+  // 生成日曆網格
   const daysGrid = useMemo(() => {
     const firstDay = getFirstDayOfMonth(year, month);
     const daysInMonth = getDaysInMonth(year, month);
@@ -112,7 +113,6 @@ const App: React.FC = () => {
         duration: 0
       };
 
-      // 如果是剛從 defaults 讀取的，確保 duration 被計算
       if (!calendarData[dateKey]) {
         entry.duration = calculateDuration(entry.start, entry.end);
       }
@@ -129,7 +129,6 @@ const App: React.FC = () => {
     daysGrid.forEach(item => {
       if (item) monthData[item.dateKey] = item.entry;
     });
-    
     const result = await analyzeMonthlyWork(monthData, hourlyRate);
     setAiComment(result);
     setIsAnalyzing(false);
@@ -138,18 +137,18 @@ const App: React.FC = () => {
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-8 min-h-screen">
       <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 print:mb-4 print:border-b-2 print:border-black print:pb-2">
-        <div>
-          <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">時薪工時薪資計算系統</h1>
-          <p className="text-slate-500 mt-1 no-print">專業、準確、快速的每月薪資管理工具</p>
+        <div className="flex-1">
+          <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">時薪薪資計算系統</h1>
+          <p className="text-slate-500 mt-1 no-print">純前端架構・自動同步・A4 列印</p>
         </div>
         
-        <div className="flex items-center gap-3 no-print">
+        <div className="flex items-center gap-4 no-print bg-white p-3 rounded-xl shadow-sm border border-slate-200">
           <div className="flex flex-col">
-            <label className="text-[10px] text-slate-400 font-bold mb-1 ml-1 uppercase">年份</label>
+            <span className="text-[10px] text-slate-400 font-bold mb-1 ml-1 uppercase">年份設定</span>
             <select 
               value={year} 
               onChange={(e) => setYear(Number(e.target.value))}
-              className="bg-white border border-slate-300 text-slate-700 rounded-lg px-3 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm min-w-[100px]"
+              className="appearance-none bg-slate-50 border border-slate-300 text-slate-700 rounded-lg px-4 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer min-w-[120px]"
             >
               {yearOptions.map(y => (
                 <option key={y} value={y}>{y} 年</option>
@@ -157,11 +156,11 @@ const App: React.FC = () => {
             </select>
           </div>
           <div className="flex flex-col">
-            <label className="text-[10px] text-slate-400 font-bold mb-1 ml-1 uppercase">月份</label>
+            <span className="text-[10px] text-slate-400 font-bold mb-1 ml-1 uppercase">月份選擇</span>
             <select 
               value={month} 
               onChange={(e) => setMonth(Number(e.target.value))}
-              className="bg-white border border-slate-300 text-slate-700 rounded-lg px-3 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm min-w-[80px]"
+              className="appearance-none bg-slate-50 border border-slate-300 text-slate-700 rounded-lg px-4 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer min-w-[100px]"
             >
               {Array.from({ length: 12 }, (_, i) => (
                 <option key={i} value={i}>{i + 1} 月</option>
@@ -172,7 +171,7 @@ const App: React.FC = () => {
 
         <div className="hidden print:block text-right">
           <div className="text-xl font-bold">{year} 年 {month + 1} 月 薪資報表</div>
-          <div className="text-xs text-gray-500">列印日期: {new Date().toLocaleDateString()}</div>
+          <div className="text-xs text-gray-500">系統產生日期: {new Date().toLocaleDateString()}</div>
         </div>
       </header>
 
@@ -188,7 +187,6 @@ const App: React.FC = () => {
         <div className="grid grid-cols-7 border-l border-slate-200 print:border-black">
           {daysGrid.map((item, index) => {
             if (!item) return <div key={`empty-${index}`} className="bg-slate-50 border-r border-b border-slate-200 print:border-black" />;
-            
             return (
               <DayCell 
                 key={item.dateKey}
@@ -214,7 +212,7 @@ const App: React.FC = () => {
       />
 
       <footer className="mt-8 text-center text-slate-400 text-xs no-print">
-        &copy; {new Date().getFullYear()} 時薪薪資計算系統 - 本系統僅供參考，實際薪資請以勞資雙方協議為準。
+        此系統採用純前端模組化架構，所有資料儲存於您的瀏覽器中。
       </footer>
     </div>
   );
