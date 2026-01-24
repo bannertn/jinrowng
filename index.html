@@ -1,242 +1,44 @@
-
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>時薪工時薪資計算系統 (All-in-One)</title>
+    <title>李金蓉-工時薪資計算系統 (PRO)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Babel 瀏覽器端即時編譯器 -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
         body {
             font-family: 'Noto Sans TC', sans-serif;
-            background-color: #f8fafc;
-        }
-        select {
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 0.5rem center;
-            background-size: 1.25rem;
-            padding-right: 2rem;
-            color: #1e293b !important;
-        }
-        select option {
-            color: #1e293b !important;
-            background-color: #ffffff !important;
-        }
-        input[type="time"]::-webkit-calendar-picker-indicator {
-            cursor: pointer;
-            opacity: 0.6;
-            transition: opacity 0.2s;
-        }
-        input[type="time"]::-webkit-calendar-picker-indicator:hover {
-            opacity: 1;
+            background-color: #f1f5f9;
         }
         @media print {
             @page { size: A4; margin: 1cm; }
             body { background-color: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .no-print { display: none !important; }
-            input[type="time"]::-webkit-calendar-picker-indicator {
-                display: none;
-            }
-            input[type="time"] {
-                border: none;
-                background: transparent;
-                padding: 0;
-            }
+            input[type="time"] { border: none; background: transparent; padding: 0; appearance: none; -webkit-appearance: none; }
         }
     </style>
-
+    <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@19.0.0",
+    "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
 </head>
 <body>
     <div id="root"></div>
-
-    <script type="module">
-        import React, { useState, useEffect, useCallback, useMemo } from 'react';
-        import { createRoot } from 'react-dom/client';
-
-        // --- Utils ---
-        const timeToMinutes = (timeStr) => {
-            if (!timeStr) return 0;
-            const [hours, minutes] = timeStr.split(':').map(Number);
-            return hours * 60 + (minutes || 0);
-        };
-
-        const calculateDuration = (start, end) => {
-            const startMins = timeToMinutes(start);
-            const endMins = timeToMinutes(end);
-            return endMins > startMins ? (endMins - startMins) / 60 : 0;
-        };
-
-        const getDefaultTimes = (dayOfWeek) => {
-            if (dayOfWeek === 2) return { start: '16:00', end: '18:00', skipped: false };
-            if (dayOfWeek === 0 || dayOfWeek === 6) return { start: '', end: '', skipped: true };
-            return { start: '12:00', end: '18:30', skipped: false };
-        };
-
-        const formatDateKey = (year, month, day) => `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
-        const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
-
-        // --- Components ---
-        const DayCell = ({ day, dateKey, dayOfWeek, entry, onUpdate, isWeekend }) => {
-            const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
-            const duration = calculateDuration(entry.start, entry.end);
-
-            return React.createElement('div', {
-                className: `min-h-[110px] p-2 border-r border-b transition-colors ${entry.skipped ? 'bg-gray-100/60' : isWeekend ? 'bg-indigo-50/40' : 'bg-white'} hover:bg-slate-50 relative group`
-            }, [
-                React.createElement('div', { key: 'header', className: "flex justify-between items-start mb-2" }, [
-                    React.createElement('div', { key: 'label', className: "flex items-baseline gap-1" }, [
-                        React.createElement('span', { key: 'd', className: `text-lg font-bold ${isWeekend ? 'text-red-500' : 'text-indigo-700'}` }, day),
-                        React.createElement('span', { key: 'w', className: "text-xs text-gray-500 font-medium" }, `週${dayNames[dayOfWeek]}`)
-                    ]),
-                    React.createElement('div', { key: 'skip', className: "flex items-center gap-1 no-print" }, [
-                        React.createElement('input', {
-                            type: "checkbox",
-                            id: `skip-${dateKey}`,
-                            checked: entry.skipped,
-                            onChange: (e) => onUpdate(dateKey, { skipped: e.target.checked }),
-                            className: "w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                        }),
-                        React.createElement('label', { htmlFor: `skip-${dateKey}`, className: "text-[10px] text-gray-400 cursor-pointer" }, "跳過")
-                    ]),
-                    !entry.skipped && React.createElement('div', { key: 'print-h', className: "hidden print:block text-xs font-bold text-gray-700" }, `${duration.toFixed(1)}h`)
-                ]),
-                entry.skipped 
-                    ? React.createElement('div', { key: 'vacation', className: "flex items-center justify-center h-12" }, 
-                        React.createElement('span', { className: "text-lg font-bold text-gray-400 tracking-widest" }, "休假")
-                      )
-                    : React.createElement('div', { key: 'inputs', className: "space-y-1" }, [
-                        ['上班', 'start'], ['下班', 'end']
-                    ].map(([label, key]) => (
-                        React.createElement('div', { key, className: "flex items-center gap-1" }, [
-                            React.createElement('label', { key: 'l', className: "text-[10px] text-gray-400 w-7 no-print" }, label),
-                            React.createElement('input', {
-                                key: 'i',
-                                type: "time",
-                                value: entry[key],
-                                onChange: (e) => onUpdate(dateKey, { [key]: e.target.value }),
-                                className: "w-full text-xs p-1 pr-6 border border-transparent group-hover:border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-indigo-300 print:border-none"
-                            })
-                        ])
-                    )))
-            ]);
-        };
-
-        const Summary = ({ totalHours, hourlyRate, onRateChange }) => {
-            const totalSalary = totalHours * hourlyRate;
-            return React.createElement('div', { className: "mt-8 bg-white border border-slate-200 rounded-2xl shadow-sm p-6 print:border-2 print:border-black print:rounded-none" }, [
-                React.createElement('div', { key: 'top', className: "flex flex-col md:flex-row justify-between items-center mb-6 border-b pb-4 print:hidden" }, [
-                    React.createElement('h2', { className: "text-xl font-bold text-slate-800" }, "薪資結算統計"),
-                    React.createElement('div', { className: "flex gap-2" }, [
-                        React.createElement('button', { onClick: () => window.print(), className: "px-6 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors" }, "列印報表")
-                    ])
-                ]),
-                React.createElement('div', { key: 'stats', className: "grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 print:grid-cols-3 print:gap-4" }, [
-                    { label: '時薪 (TWD)', val: React.createElement('input', { type: 'number', value: hourlyRate, onChange: e => onRateChange(Number(e.target.value)), className: "w-full bg-transparent text-2xl font-bold text-indigo-600 focus:outline-none print:text-black" }) },
-                    { label: '總計工時', val: `${totalHours.toFixed(2)} 小時`, color: 'text-emerald-600' },
-                    { label: '預計總薪資', val: `$${totalSalary.toLocaleString()} 元`, color: 'text-rose-600' }
-                ].map((s, i) => (
-                    React.createElement('div', { key: i, className: "p-4 bg-slate-50 rounded-xl border border-slate-100 print:bg-white print:border-black" }, [
-                        React.createElement('label', { className: "block text-sm font-medium text-slate-500 mb-1" }, s.label),
-                        typeof s.val === 'string' ? React.createElement('div', { className: `text-2xl font-bold ${s.color} print:text-black` }, s.val) : s.val
-                    ])
-                ))),
-                React.createElement('div', { key: 'sign', className: "mt-12 pt-8 border-t grid grid-cols-3 gap-12 print:mt-4 print:pt-4" }, ['員工姓名簽章', '管理者簽名', '部門主管簽名'].map(t => (
-                    React.createElement('div', { key: t, className: "flex flex-col gap-4" }, [
-                        React.createElement('span', { className: "text-sm font-bold text-slate-600 print:text-black" }, t),
-                        React.createElement('div', { className: "border-b-2 border-slate-300 h-10 print:border-black" })
-                    ])
-                )))
-            ]);
-        };
-
-        const App = () => {
-            const currentYear = new Date().getFullYear();
-            const [year, setYear] = useState(currentYear);
-            const [month, setMonth] = useState(new Date().getMonth());
-            const [hourlyRate, setHourlyRate] = useState(196);
-            const [calendarData, setCalendarData] = useState({});
-
-            useEffect(() => {
-                const saved = localStorage.getItem('salary-v4-clean');
-                if (saved) {
-                    const parsed = JSON.parse(saved);
-                    setCalendarData(parsed.data || {});
-                    setHourlyRate(parsed.rate || 196);
-                }
-            }, []);
-
-            useEffect(() => {
-                localStorage.setItem('salary-v4-clean', JSON.stringify({ data: calendarData, rate: hourlyRate }));
-            }, [calendarData, hourlyRate]);
-
-            const handleUpdateEntry = useCallback((dateKey, updates) => {
-                setCalendarData(prev => {
-                    const existing = prev[dateKey] || { dateKey, ...getDefaultTimes(new Date(dateKey).getDay()), duration: 0 };
-                    const updated = { ...existing, ...updates };
-                    updated.duration = calculateDuration(updated.start, updated.end);
-                    return { ...prev, [dateKey]: updated };
-                });
-            }, []);
-
-            const totalHours = useMemo(() => {
-                let total = 0;
-                const days = getDaysInMonth(year, month);
-                for (let d = 1; d <= days; d++) {
-                    const key = formatDateKey(year, month, d);
-                    const entry = calendarData[key] || { ...getDefaultTimes(new Date(year, month, d).getDay()) };
-                    if (!entry.skipped) total += calculateDuration(entry.start, entry.end);
-                }
-                return total;
-            }, [year, month, calendarData]);
-
-            const daysGrid = useMemo(() => {
-                const grid = Array(getFirstDayOfMonth(year, month)).fill(null);
-                for (let d = 1; d <= getDaysInMonth(year, month); d++) {
-                    const dateKey = formatDateKey(year, month, d);
-                    const dayOfWeek = new Date(year, month, d).getDay();
-                    grid.push({ day: d, dateKey, dayOfWeek, entry: calendarData[dateKey] || { dateKey, ...getDefaultTimes(dayOfWeek), duration: 0 } });
-                }
-                return grid;
-            }, [year, month, calendarData]);
-
-            return React.createElement('div', { className: "max-w-6xl mx-auto p-4 md:p-8 min-h-screen" }, [
-                React.createElement('header', { key: 'h', className: "mb-8 flex justify-between items-end gap-4" }, [
-                    React.createElement('div', null, [
-                        React.createElement('h1', { className: "text-3xl font-extrabold text-slate-800" }, "時薪薪資計算系統"),
-                        React.createElement('p', { className: "text-slate-500 no-print" }, "純前端單頁架構・自動儲存")
-                    ]),
-                    React.createElement('div', { className: "flex gap-3 no-print bg-white p-3 rounded-xl shadow-sm border" }, [
-                        { label: '年份', val: year, set: setYear, opt: Array.from({length:11}, (_,i)=>currentYear-5+i) },
-                        { label: '月份', val: month, set: setMonth, opt: Array.from({length:12}, (_,i)=>i) }
-                    ].map(s => React.createElement('div', { key: s.label, className: "flex flex-col" }, [
-                        React.createElement('span', { className: "text-[10px] font-bold text-slate-400 mb-1" }, s.label),
-                        React.createElement('select', { 
-                            value: s.val, 
-                            onChange: e => s.set(Number(e.target.value)),
-                            className: "bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-bold min-w-[100px] text-slate-800"
-                        }, s.opt.map(o => React.createElement('option', { key: o, value: o }, s.label === '月份' ? `${o+1} 月` : `${o} 年`)))
-                    ])))
-                ]),
-                React.createElement('main', { key: 'm', className: "bg-white rounded-2xl shadow-sm border overflow-hidden" }, [
-                    React.createElement('div', { className: "grid grid-cols-7 bg-slate-50 border-b" }, ['日','一','二','三','四','五','六'].map((d,i)=>React.createElement('div',{key:d, className:`py-3 text-center text-xs font-bold ${i===0||i===6?'text-red-500':'text-slate-600'}`},`週${d}`))),
-                    React.createElement('div', { className: "grid grid-cols-7 border-l" }, daysGrid.map((item, i) => 
-                        !item ? React.createElement('div', { key: `e-${i}`, className: "bg-slate-50 border-r border-b" }) :
-                        React.createElement(DayCell, { key: item.dateKey, ...item, onUpdate: handleUpdateEntry, isWeekend: item.dayOfWeek === 0 || item.dayOfWeek === 6 })
-                    ))
-                ]),
-                React.createElement(Summary, { key: 's', totalHours, hourlyRate, onRateChange: setHourlyRate })
-            ]);
-        };
-
-        const root = createRoot(document.getElementById('root'));
-        root.render(React.createElement(App));
-    </script>
-
+    <!-- 
+      使用 type="text/babel" 指定 data-type="module" 
+      這能讓瀏覽器將 TSX 檔案交給 Babel 處理，解決 GitHub Pages 空白頁面問題
+    -->
+    <script type="text/babel" data-type="module" data-presets="typescript,react" src="index.tsx"></script>
+<script type="module" src="/index.tsx"></script>
 </body>
 </html>
